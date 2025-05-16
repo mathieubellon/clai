@@ -9,8 +9,6 @@ import (
 	"os"
 	"os/exec"
 	"strings"
-
-	"github.com/eiannone/keyboard"
 )
 
 func main() {
@@ -24,34 +22,21 @@ func main() {
 		sentence = strings.TrimSpace(input)
 	}
 
-	options, err := getOpenAIOptions(sentence)
+	command, err := getOpenAICommand(sentence)
 	if err != nil {
-		fmt.Println("Error getting options:", err)
+		fmt.Println("Error getting command:", err)
 		return
 	}
 
-	selected, ok := selectOption(options)
-	if !ok {
-		fmt.Println("Selection cancelled")
-		return
-	}
-
-	// Extract the actual content after the "Option X: " prefix
-	parts := strings.SplitN(selected, ": ", 2)
-	content := selected
-	if len(parts) == 2 {
-		content = parts[1]
-	}
-
-	fmt.Println(content)
+	fmt.Println(command)
 	fmt.Println("Press Enter to execute this as a command...")
 	bufio.NewReader(os.Stdin).ReadBytes('\n')
 
-	if strings.TrimSpace(content) == "" {
+	if strings.TrimSpace(command) == "" {
 		fmt.Println("Empty command")
 		return
 	}
-	cmd := exec.Command("sh", "-c", content)
+	cmd := exec.Command("sh", "-c", command)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin
@@ -60,10 +45,10 @@ func main() {
 	}
 }
 
-func getOpenAIOptions(sentence string) ([]string, error) {
+func getOpenAICommand(sentence string) (string, error) {
 	apiKey := os.Getenv("OPENAI_API_KEY")
 	if apiKey == "" {
-		return nil, fmt.Errorf("OPENAI_API_KEY environment variable not set")
+		return "", fmt.Errorf("OPENAI_API_KEY environment variable not set")
 	}
 
 	payload := map[string]interface{}{
@@ -71,7 +56,7 @@ func getOpenAIOptions(sentence string) ([]string, error) {
 		"messages": []map[string]string{
 			{
 				"role":    "system",
-				"content": "Generate 3 command line options based on the user's input. Respond with three shell commands only, no explanations. No bullet, no line numbers, no numbered list. Purely the command line",
+				"content": "Given the user's input, output the single best shell command to accomplish the task. Respond with only the command line, no explanations, no bullets, no list, no extra text.",
 			},
 			{
 				"role":    "user",
@@ -79,7 +64,7 @@ func getOpenAIOptions(sentence string) ([]string, error) {
 			},
 		},
 		"temperature": 0.7,
-		"max_tokens":  150,
+		"max_tokens":  100,
 	}
 
 	body, _ := json.Marshal(payload)
@@ -90,7 +75,7 @@ func getOpenAIOptions(sentence string) ([]string, error) {
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 	defer resp.Body.Close()
 
@@ -106,78 +91,7 @@ func getOpenAIOptions(sentence string) ([]string, error) {
 		content = "No response"
 	}
 
-	lines := strings.Split(content, "\n")
-	options := []string{}
-	for i, line := range lines {
-		if i >= 3 {
-			break
-		}
-		cmd := strings.TrimLeft(line, "-*> ")
-		options = append(options, fmt.Sprintf("Option %d: %s", i+1, cmd))
-	}
-
-	// Fallbacks
-	for len(options) < 3 {
-		switch len(options) {
-		case 0:
-			options = append(options, fmt.Sprintf("Option 1: echo \"%s\"", sentence))
-		case 1:
-			options = append(options, fmt.Sprintf("Option 2: %s", strings.ToLower(sentence)))
-		case 2:
-			options = append(options, fmt.Sprintf("Option 3: %s", reverseString(sentence)))
-		}
-	}
-
-	return options, nil
-}
-
-func selectOption(options []string) (string, bool) {
-	selected := 0
-	printOptions(options, selected)
-	if err := keyboard.Open(); err != nil {
-		fmt.Println("Failed to open keyboard:", err)
-		return "", false
-	}
-	defer keyboard.Close()
-
-	for {
-		char, key, err := keyboard.GetKey()
-		if err != nil {
-			return "", false
-		}
-		switch key {
-		case keyboard.KeyArrowUp:
-			if selected > 0 {
-				selected--
-				printOptions(options, selected)
-			}
-		case keyboard.KeyArrowDown:
-			if selected < len(options)-1 {
-				selected++
-				printOptions(options, selected)
-			}
-		case keyboard.KeyEnter:
-			return options[selected], true
-		case keyboard.KeyCtrlC:
-			return "", false
-		default:
-			if char == 'q' || char == 'Q' {
-				return "", false
-			}
-		}
-	}
-}
-
-func printOptions(options []string, selected int) {
-	fmt.Print("\033[2J\033[H") // Clear screen
-	for i, opt := range options {
-		if i == selected {
-			fmt.Printf("> %s\n", opt)
-		} else {
-			fmt.Printf("  %s\n", opt)
-		}
-	}
-	fmt.Println("\nUse up/down arrows to navigate, Enter to select")
+	return content, nil
 }
 
 func reverseString(s string) string {
