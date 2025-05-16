@@ -16,7 +16,7 @@ import (
 func main() {
 	var sentence string
 	if len(os.Args) > 1 {
-		sentence = os.Args[1]
+		sentence = strings.Join(os.Args[1:], " ")
 	} else {
 		fmt.Print("Please enter a sentence: ")
 		reader := bufio.NewReader(os.Stdin)
