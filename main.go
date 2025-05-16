@@ -56,7 +56,7 @@ func getOpenAICommand(sentence string) (string, error) {
 		"messages": []map[string]string{
 			{
 				"role":    "system",
-				"content": "Given the user's input, output the single best shell command to accomplish the task. Respond with only the command line, no explanations, no bullets, no list, no extra text.",
+				"content": "Given the user's input, output the single best shell command to accomplish the task. Respond with only the command line, no explanations, no bullets, no list, no extra text. The User is on MAcOSX",
 			},
 			{
 				"role":    "user",
