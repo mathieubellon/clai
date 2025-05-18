@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 )
 
 func main() {
@@ -22,7 +23,15 @@ func main() {
 		sentence = strings.TrimSpace(input)
 	}
 
+	// Spinner setup
+	done := make(chan struct{})
+	go spinner(done)
+
 	command, err := getOpenAICommand(sentence)
+	close(done) // Stop the spinner
+
+	fmt.Print("\r") // Clear spinner line
+
 	if err != nil {
 		fmt.Println("Error getting command:", err)
 		return
@@ -92,6 +101,22 @@ func getOpenAICommand(sentence string) (string, error) {
 	}
 
 	return content, nil
+}
+
+// spinner prints a simple animation to indicate waiting for OpenAI response.
+func spinner(done chan struct{}) {
+	chars := []rune{'|', '/', '-', '\\'}
+	i := 0
+	for {
+		select {
+		case <-done:
+			return
+		default:
+			fmt.Printf("\rWaiting for OpenAI response... %c", chars[i%len(chars)])
+			time.Sleep(100 * time.Millisecond)
+			i++
+		}
+	}
 }
 
 func reverseString(s string) string {
